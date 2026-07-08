@@ -1,28 +1,40 @@
-﻿# Mixture of Agents - Portable
+﻿# Music Agent Desktop
 
-Multi-model collaborative AI agent system - Desktop portable version.
+AI编曲工作站桌面版 - 基于小米MiMo模型
 
-## Quick Start
+## 快速开始
 
-1. Download Mixture-of-Agents-portable.zip
-2. Extract the zip file
-3. Run Mixture of Agents.exe
+1. 下载最新Release
+2. 解压文件
+3. 运行 `start.bat`
+4. 在 `.env` 文件中设置你的 MiMo API Key
 
-## Features
+## 功能特性
 
-- Multi-model collaboration with intelligent task scheduling
-- 17+ providers: OpenAI, DeepSeek, MiMo, SiliconFlow, StepFun, etc.
-- Capability testing: 8 standardized tests
-- Cost control slider (efficiency vs cost)
-- Standalone Electron desktop window
-- API pool: up to 50 keys per provider with auto-failover
-- Dark/Light theme: Codex-style UI
+- 🎵 AI歌词生成
+- 🎤 TTS人声合成
+- 🎹 多轨编曲
+- 🎸 乐器合成
+- 🗣️ 声音克隆
+- 🎨 深色/浅色主题
 
-## Requirements
+## 技术栈
 
-- Windows x64
-- No additional installation required (portable)
+- **后端**: Python, FastAPI, MiMo API
+- **前端**: React, Vite
+- **AI**: 小米MiMo v2.5
 
-## License
+## 配置
+
+在 `.env` 文件中设置:
+
+```
+MIMO_API_KEY=your_api_key_here
+MIMO_BASE_URL=https://api.xiaomimimo.com
+MIMO_MODEL=mimo-v2.5
+MIMO_TTS_MODEL=mimo-v2.5-tts
+```
+
+## 许可证
 
 MIT

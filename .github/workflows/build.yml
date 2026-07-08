@@ -1,0 +1,118 @@
+﻿name: Build Music Agent Desktop
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Clone music-agent repo
+        run: git clone https://github.com/bauerelizabeth07139/music-agent.git app
+
+      - name: Install Python dependencies
+        run: pip install fastapi uvicorn httpx numpy soundfile pydantic pywebview python-dotenv
+
+      - name: Install Node dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Build frontend
+        working-directory: app
+        run: npm run build
+
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          $dist = "dist\music-agent-desktop"
+          New-Item -ItemType Directory -Path $dist -Force
+
+          # Copy server
+          Copy-Item "app\server" "$dist\server" -Recurse
+          Copy-Item "app\skills" "$dist\skills" -Recurse -ErrorAction SilentlyContinue
+          Copy-Item "app\.env.example" "$dist\.env.example" -ErrorAction SilentlyContinue
+
+          # Copy frontend build
+          Copy-Item "app\dist" "$dist\frontend-dist" -Recurse
+
+          # Copy launch scripts
+          Copy-Item "app\launch.py" "$dist\" -ErrorAction SilentlyContinue
+          Copy-Item "app\launch_window.py" "$dist\" -ErrorAction SilentlyContinue
+          Copy-Item "app\requirements.txt" "$dist\"
+
+          # Create start script
+          @"
+          @echo off
+          echo ========================================
+          echo   Music Agent - AI Music Workstation
+          echo ========================================
+          echo.
+          echo Installing dependencies...
+          pip install -r requirements.txt --quiet
+          echo.
+          echo Starting Music Agent...
+          python launch_window.py
+          pause
+          "@ | Out-File "$dist\start.bat" -Encoding ASCII
+
+          # Create README
+          @"
+          # Music Agent Desktop
+
+          AI Music Workstation powered by MiMo.
+
+          ## Quick Start
+          1. Install Python 3.8+
+          2. Run `start.bat`
+
+          ## Features
+          - AI lyrics generation
+          - TTS vocal synthesis
+          - Multi-track arrangement
+          - Voice cloning
+
+          ## Configuration
+          Edit `.env` to set your MiMo API key:
+          ```
+          MIMO_API_KEY=your_key_here
+          ```
+          "@ | Out-File "$dist\README.md" -Encoding UTF8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: music-agent-desktop
+          path: dist/music-agent-desktop
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Music Agent Desktop v${{ github.run_number }}
+          files: dist/music-agent-desktop/**/*
+          body: |
+            ## Music Agent Desktop
+
+            AI Music Workstation powered by MiMo.
+
+            ### Usage
+            1. Download and extract
+            2. Run `start.bat`
+            3. Set your MiMo API key in `.env`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
