@@ -38,7 +38,7 @@ jobs:
       - name: Create portable package
         shell: pwsh
         run: |
-          $dist = "dist\music-agent-desktop"
+          $dist = "music-agent-desktop"
           New-Item -ItemType Directory -Path $dist -Force
 
           # Copy server
@@ -55,7 +55,7 @@ jobs:
           Copy-Item "app\requirements.txt" "$dist\"
 
           # Create start script
-          @"
+          $startBat = @"
           @echo off
           echo ========================================
           echo   Music Agent - AI Music Workstation
@@ -67,10 +67,11 @@ jobs:
           echo Starting Music Agent...
           python launch_window.py
           pause
-          "@ | Out-File "$dist\start.bat" -Encoding ASCII
+          "@
+          $startBat | Out-File "$dist\start.bat" -Encoding ASCII
 
           # Create README
-          @"
+          $readme = @"
           # Music Agent Desktop
 
           AI Music Workstation powered by MiMo.
@@ -79,24 +80,23 @@ jobs:
           1. Install Python 3.8+
           2. Run `start.bat`
 
-          ## Features
-          - AI lyrics generation
-          - TTS vocal synthesis
-          - Multi-track arrangement
-          - Voice cloning
-
           ## Configuration
           Edit `.env` to set your MiMo API key:
           ```
           MIMO_API_KEY=your_key_here
           ```
-          "@ | Out-File "$dist\README.md" -Encoding UTF8
+          "@
+          $readme | Out-File "$dist\README.md" -Encoding UTF8
+
+      - name: Create zip archive
+        shell: pwsh
+        run: Compress-Archive -Path "music-agent-desktop\*" -DestinationPath "music-agent-desktop.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: music-agent-desktop
-          path: dist/music-agent-desktop
+          path: music-agent-desktop.zip
 
       - name: Create Release
         if: github.ref == 'refs/heads/main'
@@ -104,14 +104,14 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Music Agent Desktop v${{ github.run_number }}
-          files: dist/music-agent-desktop/**/*
+          files: music-agent-desktop.zip
           body: |
             ## Music Agent Desktop
 
             AI Music Workstation powered by MiMo.
 
             ### Usage
-            1. Download and extract
+            1. Download and extract `music-agent-desktop.zip`
             2. Run `start.bat`
             3. Set your MiMo API key in `.env`
         env:
