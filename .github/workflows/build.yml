@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -41,20 +44,14 @@ jobs:
           $dist = "music-agent-desktop"
           New-Item -ItemType Directory -Path $dist -Force
 
-          # Copy server
           Copy-Item "app\server" "$dist\server" -Recurse
           Copy-Item "app\skills" "$dist\skills" -Recurse -ErrorAction SilentlyContinue
           Copy-Item "app\.env.example" "$dist\.env.example" -ErrorAction SilentlyContinue
-
-          # Copy frontend build
           Copy-Item "app\dist" "$dist\frontend-dist" -Recurse
-
-          # Copy launch scripts
           Copy-Item "app\launch.py" "$dist\" -ErrorAction SilentlyContinue
           Copy-Item "app\launch_window.py" "$dist\" -ErrorAction SilentlyContinue
           Copy-Item "app\requirements.txt" "$dist\"
 
-          # Create start script
           $startBat = @"
           @echo off
           echo ========================================
@@ -70,7 +67,6 @@ jobs:
           "@
           $startBat | Out-File "$dist\start.bat" -Encoding ASCII
 
-          # Create README
           $readme = @"
           # Music Agent Desktop
 
@@ -100,19 +96,21 @@ jobs:
 
       - name: Create Release
         if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ github.run_number }}
+          tag: v${{ github.run_number }}
           name: Music Agent Desktop v${{ github.run_number }}
-          files: music-agent-desktop.zip
+          artifacts: "music-agent-desktop.zip"
           body: |
             ## Music Agent Desktop
 
             AI Music Workstation powered by MiMo.
 
             ### Usage
-            1. Download and extract `music-agent-desktop.zip`
-            2. Run `start.bat`
-            3. Set your MiMo API key in `.env`
+            1. Download `music-agent-desktop.zip`
+            2. Extract the zip file
+            3. Run `start.bat`
+            4. Set your MiMo API key in `.env`
+          makeLatest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
