@@ -44,15 +44,21 @@ jobs:
           $dist = "music-agent-desktop"
           New-Item -ItemType Directory -Path $dist -Force
 
+          # Copy server and skills
           Copy-Item "app\server" "$dist\server" -Recurse
           Copy-Item "app\skills" "$dist\skills" -Recurse -ErrorAction SilentlyContinue
+
+          # Copy frontend build as "dist" (not frontend-dist!)
+          Copy-Item "app\dist" "$dist\dist" -Recurse
+
+          # Copy config and scripts
           Copy-Item "app\.env.example" "$dist\.env.example" -ErrorAction SilentlyContinue
-          Copy-Item "app\dist" "$dist\frontend-dist" -Recurse
           Copy-Item "app\launch.py" "$dist\" -ErrorAction SilentlyContinue
           Copy-Item "app\launch_window.py" "$dist\" -ErrorAction SilentlyContinue
           Copy-Item "app\requirements.txt" "$dist\"
 
-          $startBat = @"
+          # Create start script
+          $startBat = @'
           @echo off
           echo ========================================
           echo   Music Agent - AI Music Workstation
@@ -64,10 +70,16 @@ jobs:
           echo Starting Music Agent...
           python launch_window.py
           pause
-          "@
+          '@
           $startBat | Out-File "$dist\start.bat" -Encoding ASCII
 
-          $readme = @"
+          # Create .env from example
+          if (Test-Path "$dist\.env.example") {
+            Copy-Item "$dist\.env.example" "$dist\.env"
+          }
+
+          # Create README
+          $readme = @'
           # Music Agent Desktop
 
           AI Music Workstation powered by MiMo.
@@ -81,7 +93,7 @@ jobs:
           ```
           MIMO_API_KEY=your_key_here
           ```
-          "@
+          '@
           $readme | Out-File "$dist\README.md" -Encoding UTF8
 
       - name: Create zip archive
@@ -94,12 +106,21 @@ jobs:
           name: music-agent-desktop
           path: music-agent-desktop.zip
 
+      - name: Delete old release
+        uses: dev-drprasad/delete-tag-and-release@v1
+        with:
+          tag_name: latest
+          delete_release: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ github.run_number }}
-          name: Music Agent Desktop v${{ github.run_number }}
+          tag: latest
+          name: Music Agent Desktop
           artifacts: "music-agent-desktop.zip"
           body: |
             ## Music Agent Desktop
@@ -112,5 +133,6 @@ jobs:
             3. Run `start.bat`
             4. Set your MiMo API key in `.env`
           makeLatest: true
+          allowUpdates: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
