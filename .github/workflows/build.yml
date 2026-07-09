@@ -24,55 +24,77 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Clone music-agent repo
-        run: git clone https://github.com/bauerelizabeth07139/music-agent.git app
+      - name: Clone and build music-agent
+        shell: bash
+        run: |
+          git clone https://github.com/bauerelizabeth07139/music-agent.git app
+          cd app
+          npm install
+          npm run build
+          pip install fastapi uvicorn httpx numpy soundfile pydantic pywebview python-dotenv
 
-      - name: Install Python dependencies
-        run: pip install fastapi uvicorn httpx numpy soundfile pydantic pywebview python-dotenv
-
-      - name: Install Node dependencies
-        working-directory: app
-        run: npm install
-
-      - name: Build frontend
-        working-directory: app
-        run: npm run build
+      - name: Verify build output
+        shell: bash
+        run: |
+          ls -la app/dist/
+          ls -la app/server/
 
       - name: Create portable package
-        shell: pwsh
+        shell: bash
         run: |
-          $dist = "music-agent-desktop"
-          New-Item -ItemType Directory -Path $dist -Force
-
-          # Copy server and skills
-          Copy-Item "app\server" "$dist\server" -Recurse
-          Copy-Item "app\skills" "$dist\skills" -Recurse -ErrorAction SilentlyContinue
-
-          # Copy frontend build as "dist" (matches backend expectation)
-          Copy-Item "app\dist" "$dist\dist" -Recurse
-
-          # Copy config and scripts
-          Copy-Item "app\.env.example" "$dist\.env.example" -ErrorAction SilentlyContinue
-          Copy-Item "app\launch.py" "$dist\" -ErrorAction SilentlyContinue
-          Copy-Item "app\launch_window.py" "$dist\" -ErrorAction SilentlyContinue
-          Copy-Item "app\requirements.txt" "$dist\"
-
-          # Create .env from example
-          if (Test-Path "$dist\.env.example") {
-            Copy-Item "$dist\.env.example" "$dist\.env"
-          }
-
-          # Create start script
-          $startContent = "@echo off`r`necho ========================================`r`necho   Music Agent - AI Music Workstation`r`necho ========================================`r`necho.`r`necho Installing dependencies...`r`npip install -r requirements.txt --quiet`r`necho.`r`necho Starting Music Agent...`r`npython launch_window.py`r`npause"
-          Set-Content "$dist\start.bat" $startContent -Encoding ASCII
-
+          mkdir -p music-agent-desktop
+          
+          # Copy server
+          cp -r app/server music-agent-desktop/
+          cp -r app/skills music-agent-desktop/ 2>/dev/null || true
+          
+          # Copy frontend build as "dist"
+          cp -r app/dist music-agent-desktop/dist
+          
+          # Copy scripts
+          cp app/launch.py music-agent-desktop/
+          cp app/launch_window.py music-agent-desktop/
+          cp app/requirements.txt music-agent-desktop/
+          
+          # Copy .env.example and create .env
+          cp app/.env.example music-agent-desktop/.env.example
+          cp app/.env.example music-agent-desktop/.env
+          
+          # Create start.bat
+          cat > music-agent-desktop/start.bat << 'STARTEOF'
+          @echo off
+          echo ========================================
+          echo   Music Agent - AI Music Workstation
+          echo ========================================
+          echo.
+          echo Installing dependencies...
+          pip install -r requirements.txt --quiet
+          echo.
+          echo Starting Music Agent...
+          python launch_window.py
+          pause
+          STARTEOF
+          
           # Create README
-          $readmeContent = "# Music Agent Desktop`n`nAI Music Workstation powered by MiMo.`n`n## Quick Start`n1. Install Python 3.8+`n2. Run start.bat`n`n## Configuration`nEdit .env to set your MiMo API key:`n```MIMO_API_KEY=your_key_here```"
-          Set-Content "$dist\README.md" $readmeContent -Encoding UTF8
+          cat > music-agent-desktop/README.md << 'READMEEOF'
+          # Music Agent Desktop
+          
+          AI Music Workstation powered by MiMo.
+          
+          ## Quick Start
+          1. Install Python 3.8+
+          2. Run start.bat
+          
+          ## Configuration
+          Edit .env to set your MiMo API key:
+          MIMO_API_KEY=your_key_here
+          READMEEOF
 
       - name: Create zip archive
-        shell: pwsh
-        run: Compress-Archive -Path "music-agent-desktop\*" -DestinationPath "music-agent-desktop.zip"
+        shell: bash
+        run: |
+          cd music-agent-desktop
+          zip -r ../music-agent-desktop.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
