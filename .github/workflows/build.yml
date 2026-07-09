@@ -24,77 +24,65 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Clone and build music-agent
-        shell: bash
+      - name: Clone music-agent
+        run: git clone https://github.com/bauerelizabeth07139/music-agent.git app --depth 1
+
+      - name: Install and build
+        working-directory: app
         run: |
-          git clone https://github.com/bauerelizabeth07139/music-agent.git app
-          cd app
           npm install
           npm run build
-          pip install fastapi uvicorn httpx numpy soundfile pydantic pywebview python-dotenv
 
-      - name: Verify build output
-        shell: bash
-        run: |
-          ls -la app/dist/
-          ls -la app/server/
+      - name: Install Python deps
+        run: pip install -r app/requirements.txt
 
-      - name: Create portable package
-        shell: bash
+      - name: Verify build
+        shell: pwsh
         run: |
-          mkdir -p music-agent-desktop
-          
-          # Copy server
-          cp -r app/server music-agent-desktop/
-          cp -r app/skills music-agent-desktop/ 2>/dev/null || true
-          
-          # Copy frontend build as "dist"
-          cp -r app/dist music-agent-desktop/dist
-          
-          # Copy scripts
-          cp app/launch.py music-agent-desktop/
-          cp app/launch_window.py music-agent-desktop/
-          cp app/requirements.txt music-agent-desktop/
-          
-          # Copy .env.example and create .env
-          cp app/.env.example music-agent-desktop/.env.example
-          cp app/.env.example music-agent-desktop/.env
-          
-          # Create start.bat
-          cat > music-agent-desktop/start.bat << 'STARTEOF'
-          @echo off
-          echo ========================================
-          echo   Music Agent - AI Music Workstation
-          echo ========================================
-          echo.
-          echo Installing dependencies...
-          pip install -r requirements.txt --quiet
-          echo.
-          echo Starting Music Agent...
-          python launch_window.py
-          pause
-          STARTEOF
-          
-          # Create README
-          cat > music-agent-desktop/README.md << 'READMEEOF'
-          # Music Agent Desktop
-          
-          AI Music Workstation powered by MiMo.
-          
-          ## Quick Start
-          1. Install Python 3.8+
-          2. Run start.bat
-          
-          ## Configuration
-          Edit .env to set your MiMo API key:
-          MIMO_API_KEY=your_key_here
-          READMEEOF
+          Test-Path "app/dist/index.html"
+          Test-Path "app/server/app.py"
+          Get-ChildItem "app/dist" | Select-Object Name
 
-      - name: Create zip archive
-        shell: bash
+      - name: Package
+        shell: pwsh
         run: |
-          cd music-agent-desktop
-          zip -r ../music-agent-desktop.zip .
+          $src = "app"
+          $dst = "music-agent-desktop"
+          New-Item -ItemType Directory -Path $dst -Force
+
+          Copy-Item "$src\server" "$dst\server" -Recurse
+          Copy-Item "$src\dist" "$dst\dist" -Recurse
+          Copy-Item "$src\launch.py" "$dst\"
+          Copy-Item "$src\launch_window.py" "$dst\"
+          Copy-Item "$src\requirements.txt" "$dst\"
+
+          if (Test-Path "$src\skills") {
+            Copy-Item "$src\skills" "$dst\skills" -Recurse
+          }
+          if (Test-Path "$src\.env.example") {
+            Copy-Item "$src\.env.example" "$dst\"
+          }
+
+      - name: Create start.bat
+        shell: pwsh
+        run: |
+          $content = "@echo off`r`necho Music Agent Desktop`r`npip install -r requirements.txt --quiet`r`npython launch_window.py`r`npause"
+          Set-Content "music-agent-desktop\start.bat" $content -Encoding ASCII
+
+      - name: Create .env
+        shell: pwsh
+        run: |
+          if (Test-Path "music-agent-desktop\.env.example") {
+            Copy-Item "music-agent-desktop\.env.example" "music-agent-desktop\.env"
+          } else {
+            Set-Content "music-agent-desktop\.env" "MIMO_API_KEY=your_key_here"
+          }
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "music-agent-desktop\*" -DestinationPath "music-agent-desktop.zip"
+          Get-Item "music-agent-desktop.zip" | Select-Object Length
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -109,18 +97,8 @@ jobs:
           tag: latest
           name: Music Agent Desktop
           artifacts: "music-agent-desktop.zip"
-          body: |
-            ## Music Agent Desktop
-
-            AI Music Workstation powered by MiMo.
-
-            ### Usage
-            1. Download `music-agent-desktop.zip`
-            2. Extract the zip file
-            3. Run `start.bat`
-            4. Set your MiMo API key in `.env`
+          body: "Music Agent Desktop - AI Music Workstation powered by MiMo\n\nUsage: Extract and run start.bat"
           makeLatest: true
           allowUpdates: true
-          removeArtifacts: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
